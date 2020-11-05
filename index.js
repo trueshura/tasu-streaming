@@ -32,8 +32,8 @@ module.exports = class extends EventEmitter {
     return this._promiseConnected;
   }
 
-  scheduleReconnect() {
-
+  _scheduleReconnect() {
+    setTimeout(this._reconnect.bind(this), this._nReconnectTimeout);
   }
 
   _connect() {
@@ -57,14 +57,13 @@ module.exports = class extends EventEmitter {
         } else {
           this._logger.error(`Error: ${err.message}`);
         }
-
-        setTimeout(this._reconnect.bind(this), this._nReconnectTimeout);
+        this._scheduleReconnect();
       });
     });
 
     this._stan.on('connection_lost', (error) => {
       this._logger.error(`Disconnected from STAN: ${error.message}`);
-      setTimeout(this._reconnect.bind(this), this._nReconnectTimeout);
+      this._scheduleReconnect();
     });
 
     this._stan.on('close', () => {
@@ -81,7 +80,7 @@ module.exports = class extends EventEmitter {
         await this.connected();
         this._restoreSubscribers();
       } catch (e) {
-        setTimeout(this._reconnect.bind(this), this._nReconnectTimeout);
+        this._scheduleReconnect();
       }
     } else {
       this._logger.info(`No more reconnect attempt will be made`);
@@ -90,7 +89,12 @@ module.exports = class extends EventEmitter {
   }
 
   _restoreSubscribers() {
-    for (let [topic, [handler, bQueue]] of this._mapHandlers) {
+
+    // subscribe affects this._mapHandlers, so we could iterate indefinitly
+    const mapCopy=new Map(this._mapHandlers);
+    this._mapHandlers=new Map();
+
+    for (let [topic, [handler, bQueue]] of mapCopy) {
       this.subscribe(topic, handler, bQueue);
     }
   }
