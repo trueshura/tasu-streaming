@@ -26,6 +26,8 @@ module.exports = class extends EventEmitter {
     this._mapHandlers = new Map();
 
     this._connect();
+
+    process.on('exit', this.close.bind(this));
   }
 
   connected() {
